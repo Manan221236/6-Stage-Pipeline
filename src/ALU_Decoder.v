@@ -45,8 +45,9 @@ module ALU_Decoder
         // 010 : R-type  & I-type  ALU
         //----------------------------------------------------------
         3'b010 : begin
-            // FIXED: Check for M-extension with proper condition
-            if (funct7 == 7'b0000001) begin
+            // CRITICAL FIX: Only check M-extension for R-type instructions (op=0x33)
+            if (funct7 == 7'b0000001 && op == 7'b0110011) begin
+                // M-extension multiplication (only for R-type)
                 case (funct3)
                     3'b000: ALUControl = MUL;
                     3'b001: ALUControl = MULH;
@@ -54,9 +55,9 @@ module ALU_Decoder
                     3'b011: ALUControl = MULHU;
                     default: ALUControl = ADD;
                 endcase
-                // CRITICAL DEBUG: Show M-extension detection
-                $display("ALU_DECODER DEBUG: M-extension detected!");
-                $display("  ALUOp=%b, funct7=%b, funct3=%b", ALUOp, funct7, funct3);
+                // DEBUG: Show M-extension detection for R-type only
+                $display("ALU_DECODER DEBUG: M-extension R-type detected!");
+                $display("  ALUOp=%b, op=%b, funct7=%b, funct3=%b", ALUOp, op, funct7, funct3);
                 $display("  Generated ALUControl=%b (%s)", ALUControl, 
                          (ALUControl == MUL) ? "MUL" :
                          (ALUControl == MULH) ? "MULH" :
@@ -64,18 +65,26 @@ module ALU_Decoder
                          (ALUControl == MULHU) ? "MULHU" : "UNKNOWN");
             end
             else begin
+                // Standard R-type and I-type operations
                 case (funct3)
                     3'b000: ALUControl =
-                             (funct7[5] & op[5]) ? SUB : ADD;  // ADD / SUB
+                             (funct7[5] & op[5]) ? SUB : ADD;  // ADD / SUB (R-type only)
                     3'b001: ALUControl = SLL;
                     3'b010: ALUControl = SLT;
                     3'b011: ALUControl = SLTU;
                     3'b100: ALUControl = XOR_;
-                    3'b101: ALUControl = (funct7[5]) ? SRA : SRL;
+                    3'b101: ALUControl = (funct7[5] & op[5]) ? SRA : SRL;  // SRA/SRL (R-type check)
                     3'b110: ALUControl = OR_;
                     3'b111: ALUControl = AND_;
                     default: ALUControl = ADD;
                 endcase
+                
+                // DEBUG: Show normal I-type/R-type processing
+                if (op == 7'b0010011) begin  // I-type
+                    $display("ALU_DECODER DEBUG: I-type instruction processed correctly");
+                    $display("  ALUOp=%b, op=%b (I-type), funct3=%b", ALUOp, op, funct3);
+                    $display("  Generated ALUControl=%b (ignored funct7 for I-type)", ALUControl);
+                end
             end
         end
         //----------------------------------------------------------
@@ -89,7 +98,7 @@ module ALU_Decoder
                 3'b011: ALUControl = MULHU;
                 default: ALUControl = ADD;
             endcase
-            // CRITICAL DEBUG: Show dedicated M-extension path
+            // DEBUG: Show dedicated M-extension path
             $display("ALU_DECODER DEBUG: Dedicated M-extension ALUOp=011!");
             $display("  funct3=%b, Generated ALUControl=%b", funct3, ALUControl);
         end
@@ -112,9 +121,16 @@ module ALU_Decoder
         endcase
         
         // ENHANCED DEBUG: Show all ALU control decisions
-        if (ALUOp == 3'b010 || ALUOp == 3'b011) begin
+        if (ALUOp == 3'b010) begin
             $display("ALU_DECODER: ALUOp=%b, op=%b, funct7=%b, funct3=%b -> ALUControl=%b", 
                      ALUOp, op, funct7, funct3, ALUControl);
+            
+            // CRITICAL: Warn if funct7=0x1 on I-type (this was the bug!)
+            if (op == 7'b0010011 && funct7 == 7'b0000001) begin
+                $display("ALU_DECODER WARNING: I-type instruction with funct7=0x1 detected");
+                $display("  This is caused by immediate value 0x039 (57), not M-extension!");
+                $display("  Correctly ignoring funct7 for I-type instruction");
+            end
         end
     end
 endmodule
