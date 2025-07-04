@@ -44,20 +44,16 @@ module Instruction_Memory
     // P = 8380417 = 0x7FE001 (much larger, need multiple instructions)
     // Method: 8380417 = 8388608 - 8191 = 2^23 - 8191
     // Since -8191 doesn't fit in 12-bit signed, split it: -8191 = -2048 + (-2048) + (-2048) + (-2047)
-    mem[3]  = 32'h00800637;  // lui  x12, 2048       ; x12 = 2048 << 12 = 8388608 = 2^23
-    mem[4]  = 32'h80060613;  // addi x12, x12, -2048 ; x12 = 8388608 - 2048 = 8386560
+    mem[3]  = 32'h007fe637;  // lui  x12, 0x7FE      ; x12 = 8380416
+    mem[4]  = 32'h00160613;  // addi x12, x12, 1     ; x12 = 8380417 ✅
     mem[5]  = 32'h80060613;  // addi x12, x12, -2048 ; x12 = 8386560 - 2048 = 8384512  
     mem[6]  = 32'h80060613;  // addi x12, x12, -2048 ; x12 = 8384512 - 2048 = 8382464
     mem[7]  = 32'h80160613;  // addi x12, x12, -2047 ; x12 = 8382464 - 2047 = 8380417 ✓
     // Test inputs: A = 12345, B = 6789 (24-bit values < 2^n)
-    mem[8]  = 32'h03039713;  // addi x14, x0, 12345  ; A = 12345 (0x3039)
-    mem[9]  = 32'h01a85793;  // addi x15, x0, 6789   ; B = 6789 (0x1A85)
-    // Step 1: R = A * B
-    mem[10] = 32'h02f70833;  // mul  x16, x14, x15   ; R = A * B = 12345 * 6789
-    
-    // For Dilithium, we also need MULH for upper bits since result > 32 bits
-    mem[11] = 32'h02f718b3;  // mulh x17, x14, x15   ; Upper 32 bits of A * B
-    
+    mem[8]  = 32'h00003737;  // lui  x14, 0x3        ; x14 = 12288
+    mem[9]  = 32'h03970713;  // addi x14, x14, 57    ; x14 = 12345 ✅
+    mem[10] = 32'h00002737;  // lui  x15, 0x2        ; x15 = 8192
+    mem[11] = 32'ha8578793;  // addi x15, x15, -1403 ; x15 = 6789 ✅
     // Step 2: Extract Rl (bits 0 to m-1) = bits 0 to 12 (13 bits)
     // Create mask for 13 bits: 2^13 - 1 = 8191 = 0x1FFF
     // Use shift approach: (1 << 13) - 1

@@ -26,22 +26,24 @@ module execute1_stage (
 );
 
     //----------------------------------------------------------------
-    // Stage 1: Forwarding Logic (Combinational)
+    // ENHANCED Forwarding Logic (Combinational)
     //----------------------------------------------------------------
     wire [31:0] Src_A_pre, Src_B_pre;
     
-    // 3:1 forwarding muxes (optimized for single stage)
-    assign Src_A_pre = (ForwardA_E1 == 2'b00) ? RD1_D :
-                       (ForwardA_E1 == 2'b01) ? ResultW :
-                       (ForwardA_E1 == 2'b10) ? ALU_ResultM :
-                       ALU_ResultE2;
+    // Enhanced 4:1 forwarding muxes with proper priority
+    assign Src_A_pre = (ForwardA_E1 == 2'b00) ? RD1_D :           // No forwarding
+                       (ForwardA_E1 == 2'b01) ? ResultW :         // From WB stage
+                       (ForwardA_E1 == 2'b10) ? ALU_ResultM :     // From MEM stage
+                       (ForwardA_E1 == 2'b11) ? ALU_ResultE2 :    // From E2 stage
+                       RD1_D;                                      // Default fallback
     
-    assign Src_B_pre = (ForwardB_E1 == 2'b00) ? RD2_D :
-                       (ForwardB_E1 == 2'b01) ? ResultW :
-                       (ForwardB_E1 == 2'b10) ? ALU_ResultM :
-                       ALU_ResultE2;
+    assign Src_B_pre = (ForwardB_E1 == 2'b00) ? RD2_D :           // No forwarding
+                       (ForwardB_E1 == 2'b01) ? ResultW :         // From WB stage
+                       (ForwardB_E1 == 2'b10) ? ALU_ResultM :     // From MEM stage
+                       (ForwardB_E1 == 2'b11) ? ALU_ResultE2 :    // From E2 stage
+                       RD2_D;                                      // Default fallback
     
-    // ALU source selection
+    // ALU source selection (ALUSrcD determines immediate vs register)
     wire [31:0] Src_B_final = ALUSrcD ? Imm_Ext_D : Src_B_pre;
     
     //----------------------------------------------------------------
@@ -83,6 +85,56 @@ module execute1_stage (
             LoadTypeE1 <= LoadTypeD;
             StoreTypeE1 <= StoreTypeD;
             funct3_E1 <= funct3_D;
+        end
+    end
+    
+    //----------------------------------------------------------------
+    // ENHANCED DEBUG OUTPUT
+    //----------------------------------------------------------------
+    
+    // Debug forwarding decisions for important registers
+    always @(*) begin
+        if (!rst && (ForwardA_E1 != 2'b00 || ForwardB_E1 != 2'b00)) begin
+            $display("EXECUTE1_FORWARD: RS1_D=x%0d, RS2_D=x%0d", RS1_D, RS2_D);
+            $display("EXECUTE1_FORWARD: ForwardA=%b->0x%08h, ForwardB=%b->0x%08h", 
+                     ForwardA_E1, Src_A_pre, ForwardB_E1, Src_B_pre);
+            if (ForwardA_E1 == 2'b11) 
+                $display("EXECUTE1_FORWARD: A from E2=0x%08h", ALU_ResultE2);
+            if (ForwardA_E1 == 2'b10) 
+                $display("EXECUTE1_FORWARD: A from MEM=0x%08h", ALU_ResultM);
+            if (ForwardA_E1 == 2'b01) 
+                $display("EXECUTE1_FORWARD: A from WB=0x%08h", ResultW);
+        end
+    end
+    
+    // Debug specific registers (A=x14, B=x15 inputs)
+    always @(posedge clk) begin
+        if (!rst && RegWriteD && (RD_D == 5'd14 || RD_D == 5'd15)) begin
+            $display("EXECUTE1_INPUT: RD=x%0d, Src_A_pre=0x%08h(%0d), Src_B_final=0x%08h(%0d)", 
+                     RD_D, Src_A_pre, $signed(Src_A_pre), Src_B_final, $signed(Src_B_final));
+            $display("EXECUTE1_INPUT: ALUSrcD=%b (0=reg, 1=imm), Imm_Ext_D=0x%08h", 
+                     ALUSrcD, Imm_Ext_D);
+        end
+    end
+    
+    // Debug multiplication setup
+    always @(posedge clk) begin
+        if (!rst && (ALUControlD >= 5'b01010) && (ALUControlD <= 5'b01101)) begin
+            $display("EXECUTE1_MULT_SETUP: ALUControl=%b, A=0x%08h(%0d), B=0x%08h(%0d)", 
+                     ALUControlD, Src_A_pre, $signed(Src_A_pre), Src_B_final, $signed(Src_B_final));
+            if (Src_A_pre == 32'd12345 && Src_B_final == 32'd6789) begin
+                $display("EXECUTE1_MULT_SETUP: ✅ CORRECT A=12345, B=6789 detected!");
+            end else if (Src_A_pre == 32'd0 || Src_B_final == 32'd0) begin
+                $display("EXECUTE1_MULT_SETUP: ❌ Zero input detected - check forwarding");
+            end
+        end
+    end
+    
+    // Debug pipeline register updates
+    always @(posedge clk) begin
+        if (!rst && RegWriteD) begin
+            $display("EXECUTE1_PIPELINE: Storing RD=x%0d, Src_A=0x%08h, Src_B=0x%08h", 
+                     RD_D, Src_A_pre, Src_B_final);
         end
     end
     
