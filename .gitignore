@@ -1,0 +1,17 @@
+# build artifacts
+**/build/**
+*.o
+*.elf
+*.bin
+*.map
+*.log
+*.jou
+*.str
+# vivado
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+# editor
+*.swp
+.DS_Store

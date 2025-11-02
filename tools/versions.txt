@@ -1,0 +1,11 @@
+## Tool versions (capture for reproducibility)
+Date: Sunday 02 November 2025 09:41:57 AM UTC
+
+### Vivado
+Vivado v2020.2 (64-bit)
+
+### RISC-V GCC (rv64)
+riscv64-unknown-elf-gcc () 10.2.0
+
+### Python
+Python 3.10.12
