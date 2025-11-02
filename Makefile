@@ -1,4 +1,4 @@
-.PHONY: all hello k2red clean
+.PHONY: all hello k2red k2red_bench clean
 
 all: hello
 
@@ -8,6 +8,10 @@ hello:
 k2red:
 	$(MAKE) -C sw/tests/k2red_smoke
 
+k2red_bench:
+	$(MAKE) -C sw/tests/k2red_bench
+
 clean:
 	$(MAKE) -C sw/tests/hello_cycle clean
 	$(MAKE) -C sw/tests/k2red_smoke clean
+	$(MAKE) -C sw/tests/k2red_bench clean
